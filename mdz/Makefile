@@ -91,6 +91,11 @@ GOROOT ?= $(shell go env GOROOT)
 BIN_DIR := $(GOPATH)/bin
 GOLANGCI_LINT := $(BIN_DIR)/golangci-lint
 
+BUILD_FLAGS ?= -s -w -X $(ROOT)/pkg/version.version=$(VERSION) \
+  -X $(ROOT)/pkg/version.buildDate=$(BUILD_DATE) \
+  -X $(ROOT)/pkg/version.gitCommit=$(GIT_COMMIT) \
+  -X $(ROOT)/pkg/version.gitTreeState=$(GIT_TREE_STATE)
+
 # check if we need embed the dashboard
 DASHBOARD_BUILD ?= debug
 
@@ -137,30 +142,28 @@ swag-install:
 	go install github.com/swaggo/swag/cmd/swag@v1.8.7
 
 build-local:
-	@for target in $(TARGETS); do                                                      \
-	  CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build -trimpath -v -o $(OUTPUT_DIR)/$${target}     \
-	    -ldflags "-s -w -X $(ROOT)/pkg/version.version=$(VERSION) -X $(ROOT)/pkg/version.buildDate=$(BUILD_DATE) -X $(ROOT)/pkg/version.gitCommit=$(GIT_COMMIT) -X $(ROOT)/pkg/version.gitTreeState=$(GIT_TREE_STATE)"                     \
-	    $(CMD_DIR)/$${target};                                                         \
+	@for target in $(TARGETS); do \
+	  CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+		-trimpath -v -o $(OUTPUT_DIR)/$${target} \
+		-ldflags "$(BUILD_FLAGS)" \
+		$(CMD_DIR)/$${target}; \
 	done
 
 build-release:
-	@for target in $(TARGETS); do                                                      \
-	  CGO_ENABLED=$(CGO_ENABLED) go build -trimpath -o $(OUTPUT_DIR)/$${target}     \
-	    -ldflags "-s -w -X $(ROOT)/pkg/version.version=$(VERSION) \
-		-X $(ROOT)/pkg/version.buildDate=$(BUILD_DATE) \
-		-X $(ROOT)/pkg/version.gitCommit=$(GIT_COMMIT) \
-		-X $(ROOT)/pkg/version.gitTreeState=$(GIT_TREE_STATE)                     \
-		-X $(ROOT)/pkg/version.gitTag=$(GIT_TAG)" \
-	    $(CMD_DIR)/$${target};                                                         \
+	@for target in $(TARGETS); do \
+	  CGO_ENABLED=$(CGO_ENABLED) go build -trimpath -o $(OUTPUT_DIR)/$${target} \
+		-ldflags "$(BUILD_FLAGS) -X $(ROOT)/pkg/version.gitTag=$(GIT_TAG)" \
+		$(CMD_DIR)/$${target}; \
 	done
 
 # It is used by vscode to attach into the process.
 debug-local:
 	@for target in $(TARGETS); do                                                      \
-	  CGO_ENABLED=$(CGO_ENABLED) go build -tags $(DASHBOARD_BUILD) -trimpath                                    \
-	  	-v -o $(DEBUG_DIR)/$${target}                                                  \
-	  	-gcflags='all=-N -l'                                                           \
-	    $(CMD_DIR)/$${target};                                                         \
+	  CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build                \
+        -tags $(DASHBOARD_BUILD) -trimpath                                             \
+		-v -o $(DEBUG_DIR)/$${target}                                                  \
+		-gcflags='all=-N -l'                                                           \
+		$(CMD_DIR)/$${target};                                                         \
 	done
 
 addlicense: addlicense-install  ## Add license to GO code files
